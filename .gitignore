@@ -7,6 +7,7 @@ coverage.json
 
 # ── Local deployment state (address changes every `npx hardhat node`) ────────
 deployment.json
+frontend/src/abi.js
 
 # ── Node dependencies ────────────────────────────────────────────────────────
 node_modules/
