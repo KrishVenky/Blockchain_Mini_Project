@@ -62,7 +62,7 @@ function AddEquipmentCard({ contract, onSuccess }) {
             placeholder="ID"
             required
             min="1"
-            className={`${inputCls} w-24`}
+            className={`${inputCls} w-20 flex-none`}
           />
           <input
             type="text"
@@ -70,7 +70,7 @@ function AddEquipmentCard({ contract, onSuccess }) {
             onChange={(e) => setName(e.target.value)}
             placeholder="Equipment name"
             required
-            className={`${inputCls} flex-1`}
+            className={`${inputCls} flex-1 min-w-0`}
           />
         </div>
         {msg && (
@@ -125,7 +125,7 @@ function AddStaffCard({ contract, onSuccess }) {
           required
           pattern="^0x[0-9a-fA-F]{40}$"
           title="Valid Ethereum address"
-          className={inputCls}
+          className={`${inputCls} w-full`}
         />
         {msg && (
           <p className={`text-xs ${msg.ok ? "text-green-400" : "text-red-400"}`}>
@@ -156,4 +156,4 @@ function Card({ title, children }) {
 }
 
 const inputCls =
-  "bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:border-blue-500 focus:outline-none w-full";
+  "bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:border-blue-500 focus:outline-none";

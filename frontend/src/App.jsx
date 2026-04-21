@@ -56,7 +56,16 @@ export default function App() {
   // Re-detect role when account changes in MetaMask
   useEffect(() => {
     if (!window.ethereum) return;
-    const handler = () => connectWallet();
+    const handler = (accounts) => {
+      if (accounts.length === 0) {
+        setAccount(null);
+        setSigner(null);
+        setContract(null);
+        setRole("VIEWER");
+      } else {
+        connectWallet();
+      }
+    };
     window.ethereum.on("accountsChanged", handler);
     return () => window.ethereum.removeListener("accountsChanged", handler);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
