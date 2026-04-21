@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 contract LabRegistry {
     address public admin;
-    uint256 public lateFeePerDay = 1000; // wei per day late
+    uint256 public lateFeePerDay = 1000; 
 
     struct Equipment {
         string name;
