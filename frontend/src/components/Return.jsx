@@ -7,12 +7,14 @@ export default function Return({ contract, role, equipment, onSuccess }) {
   const [penaltyResult, setPenaltyResult] = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [checkLoading,  setCheckLoading]  = useState(false);
+  const [payLoading,    setPayLoading]    = useState(false);
+  const [ffLoading,     setFfLoading]     = useState(false);
   const [error,         setError]         = useState(null);
   const [success,       setSuccess]       = useState(null);
+  const [paySuccess,    setPaySuccess]    = useState(null);
 
   const canAct = role === "ADMIN" || role === "STAFF";
 
-  // Live overdue preview for the entered ID
   const selectedItem = equipment.find((e) => e.id === parseInt(equipmentId, 10));
   const now = Math.floor(Date.now() / 1000);
   const daysLate =
@@ -20,6 +22,23 @@ export default function Return({ contract, role, equipment, onSuccess }) {
       ? Math.floor((now - selectedItem.dueDate) / 86400)
       : 0;
 
+  // ── Fast-forward blockchain time by 8 days (demo helper) ────────────────
+  const fastForward = async () => {
+    setFfLoading(true);
+    setError(null);
+    try {
+      await window.ethereum.request({ method: "evm_increaseTime", params: [86400 * 8] });
+      await window.ethereum.request({ method: "evm_mine", params: [] });
+      setSuccess("⏩ Blockchain time jumped 8 days forward. Now return the item to trigger a penalty.");
+      onSuccess();
+    } catch (err) {
+      setError("Fast-forward failed: " + err.message);
+    } finally {
+      setFfLoading(false);
+    }
+  };
+
+  // ── Return equipment ─────────────────────────────────────────────────────
   const handleReturn = async (e) => {
     e.preventDefault();
     setError(null);
@@ -29,7 +48,6 @@ export default function Return({ contract, role, equipment, onSuccess }) {
       const tx      = await contract.returnEquipment(parseInt(equipmentId, 10));
       const receipt = await tx.wait();
 
-      // Extract penalty from the Returned event
       let penalty = 0n;
       for (const log of receipt.logs) {
         try {
@@ -41,7 +59,9 @@ export default function Return({ contract, role, equipment, onSuccess }) {
       const penaltyEth = ethers.formatEther(penalty);
       setSuccess(
         `Equipment #${equipmentId} returned.${
-          penalty > 0n ? ` Late penalty: ${penaltyEth} ETH` : " No penalty."
+          penalty > 0n
+            ? ` Penalty of ${penaltyEth} ETH locked to borrower.`
+            : " No penalty."
         }`
       );
       setEquipmentId("");
@@ -53,13 +73,14 @@ export default function Return({ contract, role, equipment, onSuccess }) {
     }
   };
 
+  // ── Check penalty balance ────────────────────────────────────────────────
   const checkPenalty = async () => {
     if (!checkAddress.trim()) return;
     setCheckLoading(true);
     setPenaltyResult(null);
     try {
       const raw = await contract.penalties(checkAddress.trim());
-      setPenaltyResult(ethers.formatEther(raw));
+      setPenaltyResult({ address: checkAddress.trim(), eth: ethers.formatEther(raw), raw });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -67,8 +88,47 @@ export default function Return({ contract, role, equipment, onSuccess }) {
     }
   };
 
+  // ── Pay penalty (called by borrower from their own account) ─────────────
+  const payPenalty = async () => {
+    setPayLoading(true);
+    setPaySuccess(null);
+    setError(null);
+    try {
+      const owed = await contract.penalties(await contract.runner.getAddress());
+      if (owed === 0n) {
+        setError("No penalty on this account.");
+        return;
+      }
+      const tx = await contract.payPenalty({ value: owed });
+      await tx.wait();
+      setPaySuccess(`Penalty of ${ethers.formatEther(owed)} ETH paid. Borrowing access restored.`);
+      setPenaltyResult(null);
+      onSuccess();
+    } catch (err) {
+      setError(err.reason ?? err.message);
+    } finally {
+      setPayLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-sm space-y-10">
+
+      {/* ── Demo helper ── */}
+      <div className="bg-yellow-950 border border-yellow-800 rounded-lg p-4">
+        <p className="text-xs uppercase tracking-widest text-yellow-500 mb-2">Demo Helper</p>
+        <p className="text-xs text-yellow-300 mb-3">
+          Checkout an item with duration <strong>1</strong>, then click this to jump the chain 8 days forward so the return triggers a late penalty.
+        </p>
+        <button
+          onClick={fastForward}
+          disabled={ffLoading}
+          className="px-4 py-2 bg-yellow-700 hover:bg-yellow-600 disabled:opacity-40 rounded text-sm transition-colors w-full"
+        >
+          {ffLoading ? "Jumping…" : "⏩ Fast-forward 8 days"}
+        </button>
+      </div>
+
       {/* ── Return form ── */}
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-300 mb-6">
@@ -94,13 +154,10 @@ export default function Return({ contract, role, equipment, onSuccess }) {
               />
             </div>
 
-            {/* Overdue preview */}
             {selectedItem && !selectedItem.isAvailable && (
               <div className="bg-gray-900 border border-gray-800 rounded p-3 text-xs font-mono space-y-1">
                 <p className="text-gray-400">
-                  Borrower:{" "}
-                  {selectedItem.currentBorrower.slice(0, 10)}…
-                  {selectedItem.currentBorrower.slice(-4)}
+                  Borrower: {selectedItem.currentBorrower.slice(0, 10)}…{selectedItem.currentBorrower.slice(-4)}
                 </p>
                 <p className="text-gray-400">
                   Due: {new Date(selectedItem.dueDate * 1000).toLocaleDateString()}
@@ -127,7 +184,7 @@ export default function Return({ contract, role, equipment, onSuccess }) {
         )}
       </div>
 
-      {/* ── Penalty checker ── */}
+      {/* ── Check penalty balance ── */}
       <div className="border-t border-gray-800 pt-6">
         <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">
           Check Penalty Balance
@@ -149,15 +206,30 @@ export default function Return({ contract, role, equipment, onSuccess }) {
           </button>
         </div>
         {penaltyResult !== null && (
-          <p
-            className={`mt-2 text-sm font-mono ${
-              parseFloat(penaltyResult) > 0 ? "text-red-400" : "text-green-400"
-            }`}
-          >
-            Penalty: {penaltyResult} ETH
+          <p className={`mt-2 text-sm font-mono ${parseFloat(penaltyResult.eth) > 0 ? "text-red-400" : "text-green-400"}`}>
+            Penalty: {penaltyResult.eth} ETH
           </p>
         )}
       </div>
+
+      {/* ── Pay penalty (borrower pays from their wallet) ── */}
+      <div className="border-t border-gray-800 pt-6">
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-2">
+          Pay My Penalty
+        </h3>
+        <p className="text-xs text-gray-600 mb-4">
+          Switch MetaMask to the borrower account, then click below. ETH will be deducted from their wallet and borrowing access restored.
+        </p>
+        {paySuccess && <p className="text-green-400 text-xs mb-3">{paySuccess}</p>}
+        <button
+          onClick={payPenalty}
+          disabled={payLoading}
+          className="w-full py-2 bg-red-800 hover:bg-red-700 disabled:opacity-40 rounded text-sm transition-colors"
+        >
+          {payLoading ? "Processing…" : "Pay Penalty (current account)"}
+        </button>
+      </div>
+
     </div>
   );
 }

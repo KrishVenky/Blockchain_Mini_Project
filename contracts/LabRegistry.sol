@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 contract LabRegistry {
     address public admin;
-    uint256 public lateFeePerDay = 1000; 
+    uint256 public lateFeePerDay = 0.01 ether; // visible amount for demo
 
     struct Equipment {
         string name;
@@ -19,6 +19,7 @@ contract LabRegistry {
 
     event Borrowed(uint256 indexed equipmentId, address indexed borrower, uint256 dueDate);
     event Returned(uint256 indexed equipmentId, address indexed borrower, uint256 penaltyPaid);
+    event PenaltyPaid(address indexed borrower, uint256 amount);
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin can perform this action");
@@ -70,5 +71,15 @@ contract LabRegistry {
         item.dueDate = 0;
 
         emit Returned(_id, formerBorrower, penalty);
+    }
+
+    // Borrower calls this to clear their penalty by sending ETH
+    function payPenalty() external payable {
+        uint256 owed = penalties[msg.sender];
+        require(owed > 0, "No penalty owed");
+        require(msg.value >= owed, "Insufficient payment");
+        penalties[msg.sender] = 0;
+        payable(admin).transfer(msg.value);
+        emit PenaltyPaid(msg.sender, msg.value);
     }
 }
