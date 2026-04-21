@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 contract LabRegistry {
     address public admin;
-    uint256 public lateFeePerDay = 10 ether; // Example unit (could be tokens or points)
+    uint256 public lateFeePerDay = 1000; // wei per day late
 
     struct Equipment {
         string name;
