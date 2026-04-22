@@ -37,6 +37,25 @@ export const ABI = [
     "inputs": [
       {
         "indexed": true,
+        "internalType": "address",
+        "name": "borrower",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "PenaltyPaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "equipmentId",
         "type": "uint256"
@@ -196,6 +215,13 @@ export const ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "payPenalty",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -229,4 +255,4 @@ export const ABI = [
   }
 ];
 
-export const CONTRACT_ADDRESS = "0xf7571e2843f04abf9A396c4B7CF1F49495A95Cf8";
+export const CONTRACT_ADDRESS = "0xd6D0741311DCb3390Fe3c893366B738Ec5B2C756";

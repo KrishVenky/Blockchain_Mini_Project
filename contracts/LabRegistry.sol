@@ -40,6 +40,7 @@ contract LabRegistry {
     }
 
     function addEquipment(uint256 _id, string memory _name) external onlyStaff {
+        require(inventory[_id].id == 0, "Equipment ID already exists");
         inventory[_id] = Equipment(_name, true, address(0), 0, _id);
     }
 

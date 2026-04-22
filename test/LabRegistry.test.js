@@ -145,33 +145,33 @@ describe("LabRegistry", function () {
     });
   });
 
-  // ── Equipment ID Behaviour ──────────────────────────────────────────────
-  //
-  // NOTE: The contract does NOT revert on ID collision — it silently
-  // overwrites. These tests document that behaviour.
+  // ── Equipment ID Collision ──────────────────────────────────────────────
 
   describe("Equipment ID collision", function () {
-    it("adding an existing ID overwrites the record (no revert)", async function () {
-      const before = await registry.inventory(1);
-      expect(before.name).to.equal("Oscilloscope");
-
-      await registry.connect(staff).addEquipment(1, "Digital Scope");
-
-      const after = await registry.inventory(1);
-      expect(after.name).to.equal("Digital Scope");
-      expect(after.isAvailable).to.be.true;
+    it("adding an existing ID reverts", async function () {
+      await expect(
+        registry.connect(staff).addEquipment(1, "Digital Scope")
+      ).to.be.revertedWith("Equipment ID already exists");
     });
 
-    it("resets a borrowed item if its ID is re-registered (demonstrates risk)", async function () {
+    it("cannot overwrite a currently borrowed item", async function () {
       await registry.connect(staff).checkout(1, borrower.address, 7);
-      let item = await registry.inventory(1);
-      expect(item.isAvailable).to.be.false;
+      await expect(
+        registry.connect(staff).addEquipment(1, "Oscilloscope v2")
+      ).to.be.revertedWith("Equipment ID already exists");
 
-      // Re-registering the same ID forces it back to available
-      await registry.connect(staff).addEquipment(1, "Oscilloscope v2");
-      item = await registry.inventory(1);
-      expect(item.isAvailable).to.be.true;
-      expect(item.currentBorrower).to.equal(ethers.ZeroAddress);
+      // Item is still borrowed, not reset
+      const item = await registry.inventory(1);
+      expect(item.isAvailable).to.be.false;
+      expect(item.currentBorrower).to.equal(borrower.address);
+    });
+
+    it("adding a new unique ID works fine", async function () {
+      await expect(
+        registry.connect(staff).addEquipment(99, "New Device")
+      ).to.not.be.reverted;
+      const item = await registry.inventory(99);
+      expect(item.name).to.equal("New Device");
     });
   });
 });
