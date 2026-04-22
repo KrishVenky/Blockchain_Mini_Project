@@ -8,7 +8,6 @@ export default function Return({ contract, role, equipment, onSuccess }) {
   const [loading,       setLoading]       = useState(false);
   const [checkLoading,  setCheckLoading]  = useState(false);
   const [payLoading,    setPayLoading]    = useState(false);
-  const [ffLoading,     setFfLoading]     = useState(false);
   const [error,         setError]         = useState(null);
   const [success,       setSuccess]       = useState(null);
   const [paySuccess,    setPaySuccess]    = useState(null);
@@ -21,22 +20,6 @@ export default function Return({ contract, role, equipment, onSuccess }) {
     selectedItem && !selectedItem.isAvailable && selectedItem.dueDate > 0 && now > selectedItem.dueDate
       ? Math.floor((now - selectedItem.dueDate) / 86400)
       : 0;
-
-  // ── Fast-forward blockchain time by 8 days (demo helper) ────────────────
-  const fastForward = async () => {
-    setFfLoading(true);
-    setError(null);
-    try {
-      await window.ethereum.request({ method: "evm_increaseTime", params: [86400 * 8] });
-      await window.ethereum.request({ method: "evm_mine", params: [] });
-      setSuccess("⏩ Blockchain time jumped 8 days forward. Now return the item to trigger a penalty.");
-      onSuccess();
-    } catch (err) {
-      setError("Fast-forward failed: " + err.message);
-    } finally {
-      setFfLoading(false);
-    }
-  };
 
   // ── Return equipment ─────────────────────────────────────────────────────
   const handleReturn = async (e) => {
@@ -113,21 +96,6 @@ export default function Return({ contract, role, equipment, onSuccess }) {
 
   return (
     <div className="max-w-sm space-y-10">
-
-      {/* ── Demo helper ── */}
-      <div className="bg-yellow-950 border border-yellow-800 rounded-lg p-4">
-        <p className="text-xs uppercase tracking-widest text-yellow-500 mb-2">Demo Helper</p>
-        <p className="text-xs text-yellow-300 mb-3">
-          Checkout an item with duration <strong>1</strong>, then click this to jump the chain 8 days forward so the return triggers a late penalty.
-        </p>
-        <button
-          onClick={fastForward}
-          disabled={ffLoading}
-          className="px-4 py-2 bg-yellow-700 hover:bg-yellow-600 disabled:opacity-40 rounded text-sm transition-colors w-full"
-        >
-          {ffLoading ? "Jumping…" : "⏩ Fast-forward 8 days"}
-        </button>
-      </div>
 
       {/* ── Return form ── */}
       <div>
@@ -212,7 +180,7 @@ export default function Return({ contract, role, equipment, onSuccess }) {
         )}
       </div>
 
-      {/* ── Pay penalty (borrower pays from their wallet) ── */}
+      {/* ── Pay penalty ── */}
       <div className="border-t border-gray-800 pt-6">
         <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-2">
           Pay My Penalty
