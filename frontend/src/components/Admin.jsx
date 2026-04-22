@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
 
 export default function Admin({ contract, role, onSuccess }) {
   const canStaff = role === "ADMIN" || role === "STAFF";
@@ -21,6 +22,8 @@ export default function Admin({ contract, role, onSuccess }) {
       {canAdmin && (
         <AddStaffCard contract={contract} onSuccess={onSuccess} />
       )}
+
+      <SuccessionPanel contract={contract} />
     </div>
   );
 }
@@ -141,6 +144,106 @@ function AddStaffCard({ contract, onSuccess }) {
         </button>
       </form>
     </Card>
+  );
+}
+
+// ── Admin Succession Panel ───────────────────────────────────────────────────
+
+function SuccessionPanel({ contract }) {
+  const [info, setInfo]       = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    if (!contract) return;
+    setLoading(true);
+    try {
+      const [lastAction, pending, initiatedAt] = await Promise.all([
+        contract.lastAdminAction(),
+        contract.pendingAdmin(),
+        contract.successionInitiatedAt(),
+      ]);
+      const INACTIVITY = 30 * 24 * 60 * 60;
+      const WINDOW     = 7  * 24 * 60 * 60;
+      const now        = Math.floor(Date.now() / 1000);
+      const lastTs     = Number(lastAction);
+      const inactiveFor = now - lastTs;
+      const eligible   = inactiveFor > INACTIVITY;
+      const hasPending = pending !== ethers.ZeroAddress;
+      const deadline   = hasPending ? Number(initiatedAt) + WINDOW : null;
+
+      setInfo({ lastTs, inactiveFor, eligible, hasPending, pending, deadline });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [contract]);
+
+  const fmt = (secs) => {
+    const d = Math.floor(secs / 86400);
+    const h = Math.floor((secs % 86400) / 3600);
+    return d > 0 ? `${d}d ${h}h` : `${h}h`;
+  };
+
+  return (
+    <div className="border-t border-gray-800 pt-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs uppercase tracking-widest text-gray-500">
+          Admin Succession — Proof of Stake
+        </h3>
+        <button
+          onClick={load}
+          className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+        >
+          {loading ? "loading…" : "refresh"}
+        </button>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 text-xs font-mono space-y-2">
+        <p className="text-gray-500 leading-relaxed">
+          If the admin is inactive for <span className="text-white">30 days</span>, anyone can stake{" "}
+          <span className="text-white">1 ETH</span> to initiate succession. The admin has{" "}
+          <span className="text-white">7 days</span> to prove they are alive. If they do not respond,
+          the challenger claims the admin role and their stake is returned.
+        </p>
+
+        {info && (
+          <div className="border-t border-gray-800 pt-3 space-y-1.5">
+            <Row label="Last admin action" value={new Date(info.lastTs * 1000).toLocaleString()} />
+            <Row label="Admin inactive for" value={fmt(info.inactiveFor)} />
+            <Row
+              label="Succession eligible"
+              value={info.eligible ? "YES" : "NO — admin is active"}
+              valueClass={info.eligible ? "text-red-400" : "text-green-400"}
+            />
+            {info.hasPending && (
+              <>
+                <Row label="Pending challenger" value={`${info.pending.slice(0,8)}…${info.pending.slice(-4)}`} valueClass="text-yellow-400" />
+                <Row
+                  label="Challenge window closes"
+                  value={new Date(info.deadline * 1000).toLocaleString()}
+                  valueClass="text-yellow-400"
+                />
+              </>
+            )}
+            {!info.hasPending && (
+              <Row label="Succession status" value="No challenge in progress" valueClass="text-gray-500" />
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, valueClass = "text-white" }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="text-gray-500">{label}</span>
+      <span className={valueClass}>{value}</span>
+    </div>
   );
 }
 
